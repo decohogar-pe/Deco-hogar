@@ -1,0 +1,700 @@
+import { useState, useMemo } from "react";
+
+// ─── DATA INICIAL ─────────────────────────────────────────────────────────────
+const COLORS_MELAMINA = [
+  { id: "blanco", name: "Blanco Ártico", hex: "#F5F5F0" },
+  { id: "roble", name: "Roble Natural", hex: "#C8A97E" },
+  { id: "gris", name: "Gris Piedra", hex: "#9B9B9B" },
+  { id: "negro", name: "Negro Grafito", hex: "#2D2D2D" },
+  { id: "wengue", name: "Wengué", hex: "#4A3728" },
+  { id: "cerezo", name: "Cerezo", hex: "#8B4513" },
+];
+
+const EMOJIS_DISPONIBLES = ["🪞","🍳","📚","💼","🗂️","📺","🛋️","🪑","🚪","🛏️","🪟","🧺","🪴","🖥️","🗄️"];
+
+const PRODUCTOS_INICIALES = [
+  { id: 1, nombre: "Closet Modular", categoria: "Dormitorio", precioBase: 480, precioM2: 120, imagen: "🪞", descripcion: "Closet con puertas corredizas, división interna personalizable.", anchoMin: 80, anchoMax: 300, altoMin: 180, altoMax: 240, profMin: 45, profMax: 65 },
+  { id: 2, nombre: "Cocina Integral", categoria: "Cocina", precioBase: 950, precioM2: 180, imagen: "🍳", descripcion: "Muebles bajos y altos con cajones soft-close incluidos.", anchoMin: 120, anchoMax: 400, altoMin: 70, altoMax: 90, profMin: 50, profMax: 60 },
+  { id: 3, nombre: "Biblioteca", categoria: "Sala", precioBase: 280, precioM2: 90, imagen: "📚", descripcion: "Estantería con estantes regulables y zócalo de madera.", anchoMin: 60, anchoMax: 200, altoMin: 100, altoMax: 220, profMin: 25, profMax: 40 },
+  { id: 4, nombre: "Mesa de Trabajo", categoria: "Oficina", precioBase: 320, precioM2: 100, imagen: "💼", descripcion: "Escritorio con cajones laterales y gestión de cables.", anchoMin: 100, anchoMax: 200, altoMin: 72, altoMax: 80, profMin: 55, profMax: 80 },
+  { id: 5, nombre: "Cómoda", categoria: "Dormitorio", precioBase: 250, precioM2: 85, imagen: "🗂️", descripcion: "Cómoda de 4 cajones con correderas telescópicas.", anchoMin: 60, anchoMax: 120, altoMin: 80, altoMax: 110, profMin: 40, profMax: 55 },
+  { id: 6, nombre: "Mueble TV", categoria: "Sala", precioBase: 360, precioM2: 110, imagen: "📺", descripcion: "Módulo flotante con iluminación LED y espacio para equipos.", anchoMin: 100, anchoMax: 250, altoMin: 40, altoMax: 60, profMin: 30, profMax: 45 },
+];
+
+const CATEGORIAS_BASE = ["Dormitorio", "Cocina", "Sala", "Oficina", "Baño", "Otro"];
+
+function calcularPrecio(producto, ancho, alto, prof) {
+  const m2 = (ancho / 100) * (alto / 100);
+  return Math.round(producto.precioBase + m2 * producto.precioM2 + (prof / 100) * 50);
+}
+
+// ─── UI ATOMS ────────────────────────────────────────────────────────────────
+function Badge({ text, color = "#f0f0ec", textColor = "#666" }) {
+  return (
+    <span style={{ fontSize: 10, letterSpacing: "0.08em", textTransform: "uppercase",
+      background: color, color: textColor, padding: "3px 8px", borderRadius: 4, fontWeight: 600 }}>
+      {text}
+    </span>
+  );
+}
+
+function Slider({ label, min, max, value, unit, onChange }) {
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+        <span style={{ fontSize: 12, color: "#888", letterSpacing: "0.05em", textTransform: "uppercase" }}>{label}</span>
+        <span style={{ fontSize: 13, fontWeight: 600, color: "#1a1a1a" }}>{value} {unit}</span>
+      </div>
+      <input type="range" min={min} max={max} value={value}
+        onChange={e => onChange(Number(e.target.value))}
+        style={{ width: "100%", accentColor: "#1a1a1a" }} />
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#bbb", marginTop: 2 }}>
+        <span>{min}{unit}</span><span>{max}{unit}</span>
+      </div>
+    </div>
+  );
+}
+
+function Input({ label, value, onChange, type = "text", placeholder = "", min, step }) {
+  return (
+    <div style={{ marginBottom: 12 }}>
+      {label && <label style={{ fontSize: 11, color: "#888", letterSpacing: "0.05em",
+        textTransform: "uppercase", display: "block", marginBottom: 4 }}>{label}</label>}
+      <input type={type} value={value} onChange={e => onChange(e.target.value)}
+        placeholder={placeholder} min={min} step={step}
+        style={{ width: "100%", padding: "9px 12px", border: "1.5px solid #e0e0e0",
+          borderRadius: 8, fontSize: 13, background: "#fafafa", outline: "none",
+          boxSizing: "border-box", color: "#1a1a1a" }} />
+    </div>
+  );
+}
+
+function Btn({ children, onClick, variant = "primary", size = "md", fullWidth = false, danger = false }) {
+  const base = { border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 600,
+    width: fullWidth ? "100%" : "auto", transition: "opacity 0.15s" };
+  const sizes = { sm: { padding: "6px 12px", fontSize: 11 }, md: { padding: "10px 18px", fontSize: 13 }, lg: { padding: "14px 0", fontSize: 15 } };
+  const variants = {
+    primary: { background: danger ? "#e53e3e" : "#1a1a1a", color: "#fff" },
+    secondary: { background: "#f0f0ec", color: "#444" },
+    ghost: { background: "none", color: "#888" },
+  };
+  return <button onClick={onClick} style={{ ...base, ...sizes[size], ...variants[variant] }}>{children}</button>;
+}
+
+// ─── ADMIN: FORMULARIO PRODUCTO ───────────────────────────────────────────────
+function ProductoForm({ inicial, onGuardar, onCancelar }) {
+  const vacio = { nombre: "", categoria: "Dormitorio", precioBase: "", precioM2: "", imagen: "🪞",
+    descripcion: "", anchoMin: 60, anchoMax: 300, altoMin: 50, altoMax: 250, profMin: 30, profMax: 80 };
+  const [form, setForm] = useState(inicial || vacio);
+  const [emojiPicker, setEmojiPicker] = useState(false);
+
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+  const numSet = (k, v) => set(k, v === "" ? "" : Number(v));
+
+  const valido = form.nombre.trim() && form.precioBase !== "" && form.precioM2 !== "";
+
+  return (
+    <div style={{ background: "#fff", borderRadius: 14, border: "1.5px solid #e8e8e4", padding: 20, marginBottom: 16 }}>
+      <h3 style={{ margin: "0 0 16px", fontSize: 15, fontWeight: 700, color: "#1a1a1a" }}>
+        {inicial ? "Editar producto" : "Nuevo producto"}
+      </h3>
+
+      {/* Emoji selector */}
+      <div style={{ marginBottom: 14 }}>
+        <label style={{ fontSize: 11, color: "#888", textTransform: "uppercase",
+          letterSpacing: "0.05em", display: "block", marginBottom: 6 }}>Ícono</label>
+        <button onClick={() => setEmojiPicker(!emojiPicker)}
+          style={{ fontSize: 32, background: "#f5f5f0", border: "1.5px solid #e0e0e0",
+            borderRadius: 10, padding: "8px 16px", cursor: "pointer" }}>
+          {form.imagen}
+        </button>
+        {emojiPicker && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10,
+            background: "#fafafa", borderRadius: 10, padding: 12, border: "1px solid #eee" }}>
+            {EMOJIS_DISPONIBLES.map(e => (
+              <button key={e} onClick={() => { set("imagen", e); setEmojiPicker(false); }}
+                style={{ fontSize: 24, background: form.imagen === e ? "#e0e0e0" : "none",
+                  border: "none", borderRadius: 6, padding: 4, cursor: "pointer" }}>{e}</button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <Input label="Nombre del producto" value={form.nombre} onChange={v => set("nombre", v)} placeholder="Ej: Closet Modular" />
+
+      <div style={{ marginBottom: 12 }}>
+        <label style={{ fontSize: 11, color: "#888", textTransform: "uppercase",
+          letterSpacing: "0.05em", display: "block", marginBottom: 4 }}>Categoría</label>
+        <select value={form.categoria} onChange={e => set("categoria", e.target.value)}
+          style={{ width: "100%", padding: "9px 12px", border: "1.5px solid #e0e0e0",
+            borderRadius: 8, fontSize: 13, background: "#fafafa", color: "#1a1a1a", outline: "none" }}>
+          {CATEGORIAS_BASE.map(c => <option key={c}>{c}</option>)}
+        </select>
+      </div>
+
+      <Input label="Descripción" value={form.descripcion} onChange={v => set("descripcion", v)} placeholder="Breve descripción del producto" />
+
+      {/* Precios */}
+      <div style={{ background: "#f9f9f6", borderRadius: 10, padding: 14, marginBottom: 12 }}>
+        <p style={{ margin: "0 0 10px", fontSize: 11, color: "#888", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+          💰 Precios
+        </p>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          <Input label="Precio base (S/)" value={form.precioBase} onChange={v => numSet("precioBase", v)} type="number" placeholder="480" min="0" step="10" />
+          <Input label="Precio por m² (S/)" value={form.precioM2} onChange={v => numSet("precioM2", v)} type="number" placeholder="120" min="0" step="5" />
+        </div>
+        {form.precioBase !== "" && form.precioM2 !== "" && (
+          <p style={{ margin: 0, fontSize: 11, color: "#aaa" }}>
+            Precio mínimo estimado: S/ {Math.round(Number(form.precioBase) + (form.anchoMin/100)*(form.altoMin/100)*Number(form.precioM2)).toLocaleString()}
+          </p>
+        )}
+      </div>
+
+      {/* Medidas */}
+      <div style={{ background: "#f9f9f6", borderRadius: 10, padding: 14, marginBottom: 16 }}>
+        <p style={{ margin: "0 0 10px", fontSize: 11, color: "#888", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+          📐 Rango de medidas (cm)
+        </p>
+        {[
+          ["Ancho", "anchoMin", "anchoMax"],
+          ["Alto", "altoMin", "altoMax"],
+          ["Profundidad", "profMin", "profMax"],
+        ].map(([lbl, minK, maxK]) => (
+          <div key={lbl} style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <Input label={`${lbl} mín`} value={form[minK]} onChange={v => numSet(minK, v)} type="number" min="0" />
+            <Input label={`${lbl} máx`} value={form[maxK]} onChange={v => numSet(maxK, v)} type="number" min="0" />
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display: "flex", gap: 8 }}>
+        <Btn onClick={onCancelar} variant="secondary">Cancelar</Btn>
+        <Btn onClick={() => valido && onGuardar(form)} variant="primary" fullWidth={false}
+          danger={false}>
+          {inicial ? "Guardar cambios" : "Agregar producto"}
+        </Btn>
+      </div>
+    </div>
+  );
+}
+
+// ─── ADMIN VIEW ───────────────────────────────────────────────────────────────
+function AdminView({ productos, onActualizar, onEliminar, onAgregar, onSalir }) {
+  const [editandoId, setEditandoId] = useState(null);
+  const [creando, setCreando] = useState(false);
+  const [confirmarElim, setConfirmarElim] = useState(null);
+
+  const handleGuardarEdicion = (form) => {
+    onActualizar({ ...form, id: editandoId });
+    setEditandoId(null);
+  };
+
+  const handleAgregar = (form) => {
+    onAgregar({ ...form, id: Date.now() });
+    setCreando(false);
+  };
+
+  return (
+    <div>
+      {/* Header admin */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+        <div>
+          <p style={{ margin: 0, fontSize: 10, color: "#aaa", letterSpacing: "0.1em", textTransform: "uppercase" }}>Panel</p>
+          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: "#1a1a1a" }}>Administrar</h2>
+        </div>
+        <Btn onClick={onSalir} variant="secondary" size="sm">← Salir</Btn>
+      </div>
+
+      <div style={{ background: "#fff8e6", border: "1.5px solid #f0d080", borderRadius: 10,
+        padding: "10px 14px", marginBottom: 20, fontSize: 12, color: "#8a6a00" }}>
+        ✏️ Edita nombres, precios y medidas. Los cambios se reflejan inmediatamente en el catálogo.
+      </div>
+
+      {/* Botón nuevo producto */}
+      {!creando && !editandoId && (
+        <Btn onClick={() => setCreando(true)} variant="primary" fullWidth size="md">
+          + Agregar nuevo producto
+        </Btn>
+      )}
+
+      {creando && (
+        <ProductoForm onGuardar={handleAgregar} onCancelar={() => setCreando(false)} />
+      )}
+
+      <div style={{ marginTop: 16 }}>
+        {productos.map(p => (
+          <div key={p.id}>
+            {editandoId === p.id ? (
+              <ProductoForm inicial={p} onGuardar={handleGuardarEdicion} onCancelar={() => setEditandoId(null)} />
+            ) : (
+              <div style={{ border: "1.5px solid #ebebeb", borderRadius: 12, padding: 14,
+                marginBottom: 10, background: "#fff" }}>
+                <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                  <div style={{ fontSize: 28, background: "#f5f5f0", borderRadius: 8,
+                    width: 48, height: 48, display: "flex", alignItems: "center",
+                    justifyContent: "center", flexShrink: 0 }}>
+                    {p.imagen}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
+                      <p style={{ margin: 0, fontWeight: 700, fontSize: 14, color: "#1a1a1a" }}>{p.nombre}</p>
+                      <Badge text={p.categoria} />
+                    </div>
+                    <p style={{ margin: 0, fontSize: 12, color: "#888" }}>
+                      Base: <strong>S/ {p.precioBase}</strong> · Por m²: <strong>S/ {p.precioM2}</strong>
+                    </p>
+                    <p style={{ margin: "2px 0 0", fontSize: 11, color: "#bbb" }}>
+                      {p.anchoMin}–{p.anchoMax} × {p.altoMin}–{p.altoMax} × {p.profMin}–{p.profMax} cm
+                    </p>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    <Btn onClick={() => setEditandoId(p.id)} variant="secondary" size="sm">Editar</Btn>
+                    {confirmarElim === p.id ? (
+                      <div style={{ display: "flex", gap: 4 }}>
+                        <Btn onClick={() => { onEliminar(p.id); setConfirmarElim(null); }} variant="primary" danger size="sm">Sí</Btn>
+                        <Btn onClick={() => setConfirmarElim(null)} variant="ghost" size="sm">No</Btn>
+                      </div>
+                    ) : (
+                      <Btn onClick={() => setConfirmarElim(p.id)} variant="ghost" size="sm" danger>🗑</Btn>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── CATÁLOGO VIEW ────────────────────────────────────────────────────────────
+function CatalogoView({ productos, onConfigurar, onAgregarDirecto, onAdmin }) {
+  const [categoria, setCategoria] = useState("Todos");
+  const [busqueda, setBusqueda] = useState("");
+
+  const categoriasDisponibles = useMemo(() => {
+    const cats = [...new Set(productos.map(p => p.categoria))];
+    return ["Todos", ...cats];
+  }, [productos]);
+
+  const filtrados = useMemo(() => productos.filter(p =>
+    (categoria === "Todos" || p.categoria === categoria) &&
+    p.nombre.toLowerCase().includes(busqueda.toLowerCase())
+  ), [categoria, busqueda, productos]);
+
+  return (
+    <div>
+      {/* Hero */}
+      <div style={{ background: "#1a1a1a", color: "#fff", padding: "40px 28px 36px",
+        marginBottom: 28, borderRadius: 16, position: "relative", overflow: "hidden" }}>
+        <div style={{ position: "absolute", top: -20, right: -20, fontSize: 100, opacity: 0.06 }}>🏠</div>
+        <p style={{ fontSize: 10, letterSpacing: "0.2em", textTransform: "uppercase", color: "#888", marginBottom: 10, margin: "0 0 10px" }}>
+          Muebles a medida
+        </p>
+        <h1 style={{ fontSize: 34, fontWeight: 800, lineHeight: 1.1, margin: "0 0 10px", letterSpacing: "-0.02em" }}>
+          Deco<br />Hogar
+        </h1>
+        <p style={{ color: "#aaa", fontSize: 13, margin: 0 }}>
+          Diseña, configura y cotiza al instante.
+        </p>
+        <button onClick={onAdmin}
+          style={{ position: "absolute", bottom: 14, right: 14, background: "rgba(255,255,255,0.1)",
+            border: "1px solid rgba(255,255,255,0.15)", borderRadius: 8, color: "#888",
+            fontSize: 10, padding: "5px 10px", cursor: "pointer", letterSpacing: "0.05em" }}>
+          ⚙ Admin
+        </button>
+      </div>
+
+      {/* Búsqueda */}
+      <input value={busqueda} onChange={e => setBusqueda(e.target.value)}
+        placeholder="Buscar mueble..."
+        style={{ width: "100%", padding: "10px 14px", border: "1.5px solid #e8e8e4",
+          borderRadius: 8, fontSize: 14, background: "#fafafa", outline: "none",
+          boxSizing: "border-box", marginBottom: 12 }} />
+
+      {/* Filtros */}
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 20 }}>
+        {categoriasDisponibles.map(cat => (
+          <button key={cat} onClick={() => setCategoria(cat)}
+            style={{ padding: "6px 14px", borderRadius: 20, border: "1.5px solid",
+              borderColor: categoria === cat ? "#1a1a1a" : "#e0e0e0",
+              background: categoria === cat ? "#1a1a1a" : "#fff",
+              color: categoria === cat ? "#fff" : "#555",
+              fontSize: 12, cursor: "pointer", fontWeight: 500 }}>
+            {cat}
+          </button>
+        ))}
+      </div>
+
+      {filtrados.length === 0 ? (
+        <div style={{ textAlign: "center", padding: "40px 0", color: "#bbb" }}>
+          <div style={{ fontSize: 40, marginBottom: 10 }}>🔍</div>
+          <p style={{ fontSize: 14 }}>No se encontraron productos</p>
+        </div>
+      ) : (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+          {filtrados.map(p => (
+            <div key={p.id} style={{ border: "1.5px solid #ebebeb", borderRadius: 12,
+              background: "#fff", overflow: "hidden" }}>
+              <div style={{ background: "#f5f5f0", height: 100, display: "flex",
+                alignItems: "center", justifyContent: "center", fontSize: 42 }}>
+                {p.imagen}
+              </div>
+              <div style={{ padding: 12 }}>
+                <Badge text={p.categoria} />
+                <h3 style={{ fontSize: 13, fontWeight: 700, margin: "7px 0 3px", color: "#1a1a1a" }}>
+                  {p.nombre}
+                </h3>
+                <p style={{ fontSize: 11, color: "#999", margin: "0 0 8px", lineHeight: 1.4 }}>
+                  {p.descripcion}
+                </p>
+                <p style={{ fontSize: 13, fontWeight: 700, color: "#1a1a1a", margin: "0 0 8px" }}>
+                  Desde S/ {p.precioBase.toLocaleString()}
+                </p>
+                <div style={{ display: "flex", gap: 5 }}>
+                  <button onClick={() => onConfigurar(p)}
+                    style={{ flex: 1, padding: "7px 0", background: "#1a1a1a", color: "#fff",
+                      border: "none", borderRadius: 7, fontSize: 11, cursor: "pointer", fontWeight: 600 }}>
+                    Configurar
+                  </button>
+                  <button onClick={() => onAgregarDirecto(p)}
+                    style={{ padding: "7px 10px", background: "#f5f5f0", color: "#555",
+                      border: "none", borderRadius: 7, fontSize: 13, cursor: "pointer" }}>
+                    +
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── CONFIGURADOR VIEW ────────────────────────────────────────────────────────
+function ConfiguradorView({ producto, onAgregarAlCarrito, onVolver }) {
+  const [ancho, setAncho] = useState(Math.round((producto.anchoMin + producto.anchoMax) / 2));
+  const [alto, setAlto] = useState(Math.round((producto.altoMin + producto.altoMax) / 2));
+  const [prof, setProf] = useState(Math.round((producto.profMin + producto.profMax) / 2));
+  const [colorId, setColorId] = useState(COLORS_MELAMINA[0].id);
+  const [cant, setCant] = useState(1);
+
+  const precio = calcularPrecio(producto, ancho, alto, prof);
+  const total = precio * cant;
+  const colorSel = COLORS_MELAMINA.find(c => c.id === colorId);
+
+  return (
+    <div>
+      <button onClick={onVolver}
+        style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13,
+          color: "#888", padding: 0, marginBottom: 20, display: "flex", alignItems: "center", gap: 6 }}>
+        ← Volver al catálogo
+      </button>
+
+      <div style={{ background: "#f5f5f0", borderRadius: 12, height: 150,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        marginBottom: 20, position: "relative" }}>
+        <span style={{ fontSize: 72 }}>{producto.imagen}</span>
+        <div style={{ position: "absolute", bottom: 12, right: 14,
+          background: colorSel.hex, width: 26, height: 26, borderRadius: 6,
+          border: "2px solid #fff", boxShadow: "0 1px 6px rgba(0,0,0,0.2)" }} />
+      </div>
+
+      <Badge text={producto.categoria} />
+      <h2 style={{ fontSize: 22, fontWeight: 800, margin: "8px 0 4px", color: "#1a1a1a", letterSpacing: "-0.02em" }}>
+        {producto.nombre}
+      </h2>
+      <p style={{ fontSize: 13, color: "#999", margin: "0 0 24px" }}>{producto.descripcion}</p>
+
+      <div style={{ background: "#fafafa", borderRadius: 10, padding: 16, marginBottom: 18 }}>
+        <p style={{ fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase",
+          color: "#888", margin: "0 0 14px" }}>📐 Medidas</p>
+        <Slider label="Ancho" min={producto.anchoMin} max={producto.anchoMax} value={ancho} unit="cm" onChange={setAncho} />
+        <Slider label="Alto" min={producto.altoMin} max={producto.altoMax} value={alto} unit="cm" onChange={setAlto} />
+        <Slider label="Profundidad" min={producto.profMin} max={producto.profMax} value={prof} unit="cm" onChange={setProf} />
+        <div style={{ background: "#eee", borderRadius: 6, padding: "8px 12px",
+          fontSize: 12, color: "#666", textAlign: "center", fontWeight: 600 }}>
+          {ancho} × {alto} × {prof} cm
+        </div>
+      </div>
+
+      <div style={{ marginBottom: 18 }}>
+        <p style={{ fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase",
+          color: "#888", margin: "0 0 10px" }}>🎨 Color de melamina</p>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          {COLORS_MELAMINA.map(c => (
+            <button key={c.id} onClick={() => setColorId(c.id)} title={c.name}
+              style={{ width: 36, height: 36, borderRadius: 8, background: c.hex,
+                border: colorId === c.id ? "2.5px solid #1a1a1a" : "2px solid #ddd", cursor: "pointer" }} />
+          ))}
+        </div>
+        <p style={{ fontSize: 12, color: "#999", marginTop: 6 }}>{colorSel.name}</p>
+      </div>
+
+      <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 22 }}>
+        <p style={{ fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: "#888", margin: 0 }}>Cantidad</p>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <button onClick={() => setCant(Math.max(1, cant - 1))}
+            style={{ width: 32, height: 32, borderRadius: 6, border: "1.5px solid #ddd",
+              background: "#fff", fontSize: 18, cursor: "pointer" }}>−</button>
+          <span style={{ fontWeight: 800, fontSize: 16, minWidth: 24, textAlign: "center" }}>{cant}</span>
+          <button onClick={() => setCant(cant + 1)}
+            style={{ width: 32, height: 32, borderRadius: 6, border: "1.5px solid #ddd",
+              background: "#fff", fontSize: 18, cursor: "pointer" }}>+</button>
+        </div>
+      </div>
+
+      <div style={{ background: "#1a1a1a", color: "#fff", borderRadius: 12, padding: 20, marginBottom: 14 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+          <span style={{ fontSize: 12, color: "#aaa" }}>Precio unitario</span>
+          <span style={{ fontSize: 14, fontWeight: 600 }}>S/ {precio.toLocaleString()}</span>
+        </div>
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 14,
+          borderBottom: "1px solid #333", paddingBottom: 12 }}>
+          <span style={{ fontSize: 12, color: "#aaa" }}>Cantidad</span>
+          <span style={{ fontSize: 14, fontWeight: 600 }}>× {cant}</span>
+        </div>
+        <div style={{ display: "flex", justifyContent: "space-between" }}>
+          <span style={{ fontSize: 13, color: "#ccc" }}>Total estimado</span>
+          <span style={{ fontSize: 24, fontWeight: 800 }}>S/ {total.toLocaleString()}</span>
+        </div>
+      </div>
+
+      <button onClick={() => onAgregarAlCarrito({ producto, ancho, alto, prof, color: colorSel, cant, precio, total })}
+        style={{ width: "100%", padding: "14px 0", background: "#1a1a1a", color: "#fff",
+          border: "none", borderRadius: 10, fontSize: 15, fontWeight: 700, cursor: "pointer" }}>
+        Agregar al carrito
+      </button>
+    </div>
+  );
+}
+
+// ─── CARRITO VIEW ─────────────────────────────────────────────────────────────
+function CarritoView({ items, onEliminar, onVolver, onCotizar }) {
+  const subtotal = items.reduce((s, i) => s + i.total, 0);
+  const delivery = 80;
+  const igv = Math.round(subtotal * 0.18);
+  const totalFinal = subtotal + delivery + igv;
+
+  if (items.length === 0) return (
+    <div style={{ textAlign: "center", paddingTop: 60 }}>
+      <div style={{ fontSize: 56, marginBottom: 16 }}>🛒</div>
+      <h3 style={{ color: "#1a1a1a", fontWeight: 700 }}>Tu carrito está vacío</h3>
+      <p style={{ color: "#aaa", fontSize: 14 }}>Agrega muebles desde el catálogo</p>
+      <button onClick={onVolver}
+        style={{ marginTop: 20, padding: "10px 28px", background: "#1a1a1a", color: "#fff",
+          border: "none", borderRadius: 8, fontSize: 14, cursor: "pointer", fontWeight: 600 }}>
+        Ver catálogo
+      </button>
+    </div>
+  );
+
+  return (
+    <div>
+      <h2 style={{ fontSize: 22, fontWeight: 800, color: "#1a1a1a", margin: "0 0 18px", letterSpacing: "-0.02em" }}>
+        Mi carrito <span style={{ fontWeight: 400, color: "#aaa", fontSize: 16 }}>({items.length})</span>
+      </h2>
+
+      {items.map((item, i) => (
+        <div key={i} style={{ border: "1.5px solid #ebebeb", borderRadius: 12, padding: 14, marginBottom: 10 }}>
+          <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+            <div style={{ background: "#f5f5f0", borderRadius: 8, width: 50, height: 50,
+              display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, flexShrink: 0 }}>
+              {item.producto.imagen}
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <p style={{ margin: 0, fontWeight: 700, fontSize: 14, color: "#1a1a1a" }}>
+                  {item.producto.nombre}
+                </p>
+                <button onClick={() => onEliminar(i)}
+                  style={{ background: "none", border: "none", cursor: "pointer", color: "#ccc", fontSize: 16, padding: 0 }}>✕</button>
+              </div>
+              <p style={{ margin: "3px 0 6px", fontSize: 11, color: "#999" }}>
+                {item.ancho}×{item.alto}×{item.prof} cm · {item.color.name} · ×{item.cant}
+              </p>
+              <p style={{ margin: 0, fontWeight: 700, fontSize: 15, color: "#1a1a1a" }}>
+                S/ {item.total.toLocaleString()}
+              </p>
+            </div>
+          </div>
+        </div>
+      ))}
+
+      <div style={{ background: "#fafafa", borderRadius: 12, padding: 18, marginTop: 6 }}>
+        <p style={{ fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: "#888", margin: "0 0 12px" }}>Resumen</p>
+        {[["Subtotal", `S/ ${subtotal.toLocaleString()}`], ["Instalación y delivery", `S/ ${delivery}`], ["IGV (18%)", `S/ ${igv.toLocaleString()}`]].map(([l, v]) => (
+          <div key={l} style={{ display: "flex", justifyContent: "space-between", marginBottom: 7, fontSize: 13, color: "#666" }}>
+            <span>{l}</span><span>{v}</span>
+          </div>
+        ))}
+        <div style={{ borderTop: "1.5px solid #e0e0e0", paddingTop: 12, marginTop: 6,
+          display: "flex", justifyContent: "space-between" }}>
+          <span style={{ fontWeight: 700, color: "#1a1a1a" }}>Total</span>
+          <span style={{ fontWeight: 800, fontSize: 18, color: "#1a1a1a" }}>S/ {totalFinal.toLocaleString()}</span>
+        </div>
+      </div>
+
+      <button onClick={onCotizar}
+        style={{ width: "100%", marginTop: 14, padding: "14px 0", background: "#1a1a1a",
+          color: "#fff", border: "none", borderRadius: 10, fontSize: 15, fontWeight: 700, cursor: "pointer" }}>
+        Solicitar cotización formal
+      </button>
+      <p style={{ textAlign: "center", fontSize: 11, color: "#bbb", marginTop: 8 }}>
+        Un asesor te contactará en menos de 24h
+      </p>
+    </div>
+  );
+}
+
+// ─── CONFIRMACIÓN VIEW ────────────────────────────────────────────────────────
+function ConfirmacionView({ items, onNuevo }) {
+  const total = items.reduce((s, i) => s + i.total, 0);
+  return (
+    <div style={{ textAlign: "center", paddingTop: 40 }}>
+      <div style={{ fontSize: 64, marginBottom: 16 }}>✅</div>
+      <h2 style={{ fontSize: 22, fontWeight: 800, color: "#1a1a1a", margin: "0 0 8px", letterSpacing: "-0.02em" }}>
+        ¡Cotización enviada!
+      </h2>
+      <p style={{ color: "#888", fontSize: 14, margin: "0 0 28px", lineHeight: 1.6 }}>
+        Recibimos tu solicitud con {items.length} producto(s) por un total estimado de{" "}
+        <strong style={{ color: "#1a1a1a" }}>S/ {total.toLocaleString()}</strong>.<br />
+        Un asesor te contactará en 24h.
+      </p>
+      <div style={{ background: "#f5f5f0", borderRadius: 10, padding: 16, marginBottom: 24, textAlign: "left" }}>
+        {items.map((item, i) => (
+          <div key={i} style={{ display: "flex", justifyContent: "space-between",
+            fontSize: 13, color: "#555", marginBottom: 5 }}>
+            <span>{item.producto.nombre} × {item.cant}</span>
+            <span style={{ fontWeight: 600 }}>S/ {item.total.toLocaleString()}</span>
+          </div>
+        ))}
+      </div>
+      <button onClick={onNuevo}
+        style={{ padding: "12px 32px", background: "#1a1a1a", color: "#fff",
+          border: "none", borderRadius: 8, fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
+        Hacer otro pedido
+      </button>
+    </div>
+  );
+}
+
+// ─── APP PRINCIPAL ─────────────────────────────────────────────────────────────
+export default function App() {
+  const [vista, setVista] = useState("catalogo");
+  const [productoSel, setProductoSel] = useState(null);
+  const [carrito, setCarrito] = useState([]);
+  const [productos, setProductos] = useState(PRODUCTOS_INICIALES);
+
+  const handleConfigurar = (p) => { setProductoSel(p); setVista("configurador"); };
+  const handleAgregarDirecto = (p) => {
+    const precio = calcularPrecio(p,
+      Math.round((p.anchoMin + p.anchoMax) / 2),
+      Math.round((p.altoMin + p.altoMax) / 2),
+      Math.round((p.profMin + p.profMax) / 2));
+    setCarrito(prev => [...prev, {
+      producto: p,
+      ancho: Math.round((p.anchoMin + p.anchoMax) / 2),
+      alto: Math.round((p.altoMin + p.altoMax) / 2),
+      prof: Math.round((p.profMin + p.profMax) / 2),
+      color: COLORS_MELAMINA[0], cant: 1, precio, total: precio
+    }]);
+  };
+  const handleAgregarCarrito = (item) => { setCarrito(prev => [...prev, item]); setVista("carrito"); };
+  const handleEliminar = (i) => setCarrito(prev => prev.filter((_, idx) => idx !== i));
+
+  // Admin handlers
+  const handleActualizar = (productoActualizado) => {
+    setProductos(prev => prev.map(p => p.id === productoActualizado.id ? productoActualizado : p));
+    setCarrito(prev => prev.map(item =>
+      item.producto.id === productoActualizado.id
+        ? { ...item, producto: productoActualizado, precio: calcularPrecio(productoActualizado, item.ancho, item.alto, item.prof),
+            total: calcularPrecio(productoActualizado, item.ancho, item.alto, item.prof) * item.cant }
+        : item
+    ));
+  };
+  const handleEliminarProducto = (id) => {
+    setProductos(prev => prev.filter(p => p.id !== id));
+  };
+  const handleAgregarProducto = (p) => setProductos(prev => [...prev, p]);
+
+  const TABS = [
+    { id: "catalogo", label: "Catálogo", icon: "🪵" },
+    { id: "carrito", label: carrito.length ? `Carrito (${carrito.length})` : "Carrito", icon: "🛒" },
+  ];
+
+  return (
+    <div style={{ maxWidth: 420, margin: "0 auto", minHeight: "100vh",
+      background: "#fff", fontFamily: "'Inter', system-ui, sans-serif", paddingBottom: 80 }}>
+
+      {/* Header */}
+      <div style={{ position: "sticky", top: 0, background: "rgba(255,255,255,0.96)",
+        backdropFilter: "blur(10px)", borderBottom: "1px solid #f0f0ec", padding: "13px 20px",
+        display: "flex", alignItems: "center", justifyContent: "space-between", zIndex: 100 }}>
+        <div>
+          <p style={{ margin: 0, fontSize: 9, letterSpacing: "0.2em", textTransform: "uppercase", color: "#bbb" }}>Tienda</p>
+          <h1 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: "#1a1a1a", letterSpacing: "-0.03em" }}>
+            Deco Hogar
+          </h1>
+        </div>
+        <button onClick={() => setVista("carrito")}
+          style={{ background: carrito.length ? "#1a1a1a" : "#f5f5f0", border: "none",
+            borderRadius: 10, padding: "8px 14px", cursor: "pointer", position: "relative",
+            fontSize: 18, color: carrito.length ? "#fff" : "#555" }}>
+          🛒
+          {carrito.length > 0 && (
+            <span style={{ position: "absolute", top: -5, right: -5, background: "#e53e3e",
+              color: "#fff", borderRadius: "50%", width: 18, height: 18,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 10, fontWeight: 800 }}>{carrito.length}</span>
+          )}
+        </button>
+      </div>
+
+      {/* Contenido */}
+      <div style={{ padding: "22px 18px" }}>
+        {vista === "catalogo" && (
+          <CatalogoView productos={productos} onConfigurar={handleConfigurar}
+            onAgregarDirecto={handleAgregarDirecto} onAdmin={() => setVista("admin")} />
+        )}
+        {vista === "configurador" && productoSel && (
+          <ConfiguradorView producto={productoSel}
+            onAgregarAlCarrito={handleAgregarCarrito}
+            onVolver={() => setVista("catalogo")} />
+        )}
+        {vista === "carrito" && (
+          <CarritoView items={carrito} onEliminar={handleEliminar}
+            onVolver={() => setVista("catalogo")} onCotizar={() => setVista("confirmacion")} />
+        )}
+        {vista === "confirmacion" && (
+          <ConfirmacionView items={carrito} onNuevo={() => { setCarrito([]); setVista("catalogo"); }} />
+        )}
+        {vista === "admin" && (
+          <AdminView productos={productos}
+            onActualizar={handleActualizar}
+            onEliminar={handleEliminarProducto}
+            onAgregar={handleAgregarProducto}
+            onSalir={() => setVista("catalogo")} />
+        )}
+      </div>
+
+      {/* Bottom Nav */}
+      {(vista === "catalogo" || vista === "carrito") && (
+        <div style={{ position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)",
+          width: "100%", maxWidth: 420, background: "#fff", borderTop: "1px solid #f0f0ec", display: "flex" }}>
+          {TABS.map(tab => (
+            <button key={tab.id} onClick={() => setVista(tab.id)}
+              style={{ flex: 1, padding: "10px 0", border: "none", background: "none", cursor: "pointer",
+                fontSize: 11, fontWeight: 600, color: vista === tab.id ? "#1a1a1a" : "#bbb",
+                borderTop: vista === tab.id ? "2.5px solid #1a1a1a" : "2.5px solid transparent" }}>
+              <div style={{ fontSize: 20, marginBottom: 2 }}>{tab.icon}</div>
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
